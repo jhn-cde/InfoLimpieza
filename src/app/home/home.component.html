@@ -2,3 +2,7 @@
   <p>Open Excel File</p>
   <input type="file" name="files[]" multiple id="jsonFile" accept=".xlsx" (change)="onFileChange($event)" />
 </div>
+
+<div>
+  <button type="button" (click)="onDownloadDistribution()">Descargar Distribucion</button>
+</div>

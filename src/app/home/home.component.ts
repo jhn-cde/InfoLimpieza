@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import * as Excel from '@grapecity/spread-excelio';
 import * as GC from '@grapecity/spread-sheets';
+import { saveAs } from 'file-saver';
 
 @Component({
   selector: 'app-home',
@@ -25,10 +26,11 @@ export class HomeComponent implements OnInit {
 
   }
 
+  // actions ---
   onFileChange(args: any) {
-    const self = this, file = args.srcElement && args.srcElement.files && args.srcElement.files[0];
-    if (self.spread && file) {
-      self.excelIO.open(file, (json: any) => {
+    const file = args.srcElement && args.srcElement.files && args.srcElement.files[0];
+    if (this.spread && file) {
+      this.excelIO.open(file, (json: any) => {
         const rows = json.sheets.Hoja1.data.dataTable;
         this.fillStudentsTeachers(rows);
         this.fillListas();
@@ -40,6 +42,21 @@ export class HomeComponent implements OnInit {
       });
     }
   }
+
+  onDownloadDistribution(){
+    const filename = 'exportExcel.csv';
+    /*const json = JSON.stringify(JSON.stringify(this.distribution));
+    console.log(json);
+
+
+    this.excelIO.save(json, function (blob: any) {
+      saveAs(blob, filename);
+    }, function (error: any) {
+      console.log(error);
+    });*/
+  }
+
+  // functions ---
 
   fillStudentsTeachers(rows: any){
     Object.keys(rows).map((rKey) => {
@@ -122,7 +139,5 @@ export class HomeComponent implements OnInit {
 
       remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
     }
-
-    console.log(this.distribution);
   }
 }

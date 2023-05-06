@@ -13,8 +13,8 @@ export class HomeComponent implements OnInit {
   students: {code: string, name: string}[] = [];
   teachers: {code: string, name: string}[] = [];
   enrollments: {studentCode: string, teacherCode: string, courseCode: string, courseName: string}[] = [];
-  distribution: {teacherCode: string, students: Set<string>}[] = [];
-  mean: number = 0;
+  distribution: {teacherCode: string, students: {code: string, course: string}[]}[] = [];
+  max: number = 0;
 
   constructor() {
     this.spread = new GC.Spread.Sheets.Workbook();
@@ -67,33 +67,62 @@ export class HomeComponent implements OnInit {
         courseCode: register[2].value, courseName: register[3].value}
       ]
     }})
-    this.mean = Math.round(this.students.length/this.teachers.length);
-    console.log(this.mean)
-
+    this.max = Math.round(this.students.length/this.teachers.length)+2;
   }
   fillListas(){
-    let stAdded: Set<string> = new Set<string>();
+    let stAdded: string[] = [];
+    let remainingEnrollments = [...this.enrollments];
     this.enrollments.map(enrollment => {
-      if(!stAdded.has(enrollment.studentCode)){
+      if (stAdded.findIndex(st => enrollment.studentCode===st) < 0){
         let added = false;
         let disIndex = this.distribution.findIndex(dis => dis.teacherCode === enrollment.teacherCode);
 
         if(disIndex < 0){
           this.distribution = [...this.distribution,
-            {teacherCode: enrollment.teacherCode, students: new Set<string>(enrollment.studentCode)}];
+            {teacherCode: enrollment.teacherCode, students: [{code:enrollment.studentCode, course: enrollment.courseName}]}];
           added = true;
         }
-        else if(this.distribution[disIndex].students.size < this.mean){
-          this.distribution[disIndex].students.add(enrollment.studentCode);
+        else if(this.distribution[disIndex].students.length < this.max){
+          this.distribution[disIndex].students = [...this.distribution[disIndex].students,
+          {code:enrollment.studentCode, course: enrollment.courseName}];
           added = true;
         }
 
-        if(added) stAdded.add(enrollment.studentCode);
+        if(added) {
+          stAdded = [...stAdded, enrollment.studentCode];
+          remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== enrollment.studentCode);
+        }
       }
     })
-    const sum = this.distribution.reduce(((acc, nxt)=>acc+nxt.students.size),0)
-    console.log(this.students.length)
-    console.log(sum)
-    console.log(this.distribution)
+
+    // distribute remaining students
+    let i = 0;
+    while(remainingEnrollments.length > i){
+      const remain = remainingEnrollments[i];
+      const disIndex = this.distribution.findIndex(enr => enr.teacherCode === remain.teacherCode);
+      if(disIndex >= 0 && this.distribution[disIndex].students.length<this.max+2){
+        this.distribution[disIndex].students = [...this.distribution[disIndex].students,
+          {code: remain.studentCode, course: remain.courseName}
+        ];
+
+        remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
+      } else {
+        i++;
+      }
+    }
+
+    // get ramaining students
+    while(remainingEnrollments.length > 0) {
+      const remain = remainingEnrollments[0];
+      // order by number of students
+      this.distribution.sort((a,b)=> a.students.length>b.students.length?1:-1);
+      this.distribution[0].students = [...this.distribution[0].students,
+        {code: remain.studentCode, course: remain.courseName}
+      ];
+
+      remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
+    }
+
+    console.log(this.distribution);
   }
 }

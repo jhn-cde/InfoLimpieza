@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import * as XLSX from 'xlsx';
-import { Distribution, Enrollment, Person, ReactiveService } from '../shared/reactive.service';
+import { ReactiveService } from '../shared/reactive.service';
+import { Distribution, Person } from '../shared/interfaces';
 
 @Component({
   selector: 'app-home',
@@ -22,9 +23,9 @@ export class HomeComponent implements OnInit {
     this.service
       .getFileData()
       .subscribe((data) => {
-        this.distribution = data.distribution;
-        this.teachers = data.teachers;
-        this.students = data.students;
+        this.distribution = data["distribution"];
+        this.teachers = data["teachers"];
+        this.students = data["students"];
       });
   }
 

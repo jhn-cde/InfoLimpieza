@@ -1,8 +1,10 @@
 import { Component } from '@angular/core';
 import * as XLSX from 'xlsx';
 
-import {MatTreeFlatDataSource, MatTreeFlattener} from '@angular/material/tree';
-import {FlatTreeControl} from '@angular/cdk/tree';
+interface Node{
+  name: string,
+  children?: Node[]
+}
 
 interface Person{code: string, name: string}
 interface Enrollment{
@@ -14,15 +16,6 @@ interface Distribution{
   teacherCode: string, teacherName: string,
   students: {studentCode: string, studentName: string, course: string}[]
 }
-interface Node{
-  name: string,
-  children?: Node[]
-}
-interface FlatNode {
-  expandable: boolean;
-  name: string;
-  level: number;
-}
 
 @Component({
   selector: 'app-home',
@@ -31,35 +24,15 @@ interface FlatNode {
 })
 
 export class HomeComponent {
-  private _transformer = (node: Node, level: number) => {
-    return {
-      expandable: !!node.children && node.children.length > 0,
-      name: node.name,
-      level: level,
-    };
-  };
-
-  treeControl = new FlatTreeControl<FlatNode>(
-    node => node.level,
-    node => node.expandable,
-  );
-  treeFlattener = new MatTreeFlattener(
-    this._transformer,
-    node => node.level,
-    node => node.expandable,
-    node => node.children,
-  );
-  dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener);
-
   students: Person[] = [];
   teachers: Person[] = [];
   enrollments: Enrollment[] = [];
   distribution: Distribution[] = [];
   max: number = 0;
+  tree: Node[] = [];
 
   constructor() {
   }
-  hasChild = (_: number, node: FlatNode) => node.expandable;
 
   // actions ---
   onFileChange(args: any) {
@@ -219,7 +192,7 @@ export class HomeComponent {
     console.log(`${this.distribution.length} listas`)
 
     // fill tree
-    this.dataSource.data = this.distribution.map(dis => {
+    this.tree = this.distribution.map(dis => {
       return{
         name: `${dis.teacherName} (${dis.students.length})`,
         children: dis.students.map(st => {return {name: `${st.studentCode} - ${st.studentName}`}})

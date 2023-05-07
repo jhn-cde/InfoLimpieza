@@ -1,32 +1,24 @@
-<div class="header">
-<h1>INFO LIMPIEZA</h1>
-  <div class="buttons">
-    <div class='loadExcelInput' mat-raised-button>
-      <button type="button" mat-raised-button style="cursor:auto;">
-        <input type="file" name="files[]" multiple id="jsonFile" accept=".xlsx" (change)="onFileChange($event)"/>
-      </button>
-    </div>
+<div class="container">
+  <div class="header">
+    <h1>INFO LIMPIEZA</h1>
+    <div class="buttons">
+      <div class='loadExcelInput' mat-raised-button>
+        <button type="button" mat-raised-button style="cursor:auto;">
+          <input type="file" name="files[]" multiple id="jsonFile" accept=".xlsx" (change)="onFileChange($event)"/>
+        </button>
+      </div>
 
-    <div class="downloadBtn">
-      <button mat-raised-button type="button" (click)="onDownloadDistribution()">Descargar Distribucion</button>
+      <div class="downloadBtn">
+        <button mat-raised-button type="button" (click)="onDownloadDistribution()">Descargar Distribucion</button>
+      </div>
     </div>
+    <mat-divider></mat-divider>
+  </div>
+  <div class="main" *ngIf="tree.length > 0">
+    <h2>Distribucion de estudiantes y docentes para la Info Limpieza</h2>
+    <app-tree
+      [tree]="tree"
+    ></app-tree>
+    
   </div>
 </div>
-<mat-tree [dataSource]="dataSource" [treeControl]="treeControl">
-  <!-- This is the tree node template for leaf nodes -->
-  <mat-tree-node *matTreeNodeDef="let node" matTreeNodePadding>
-    <!-- use a disabled button to provide padding for tree leaf -->
-    <button mat-icon-button disabled></button>
-    {{node.name}}
-  </mat-tree-node>
-  <!-- This is the tree node template for expandable nodes -->
-  <mat-tree-node *matTreeNodeDef="let node;when: hasChild" matTreeNodePadding>
-    <button mat-icon-button matTreeNodeToggle
-            [attr.aria-label]="'Toggle ' + node.name">
-      <mat-icon class="mat-icon-rtl-mirror">
-        {{treeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
-      </mat-icon>
-    </button>
-    {{node.name}}
-  </mat-tree-node>
-</mat-tree>

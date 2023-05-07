@@ -61,7 +61,7 @@ export class HomeComponent implements OnInit {
   fillStudentsTeachers(rows: any){
     Object.keys(rows).map((rKey) => {
     if(rKey !== '0'){
-      const register = rows[rKey];
+      let register = rows[rKey];
 
       // Students ---
       const stIndex = this.students.findIndex(st => st.code === register[0].value);
@@ -71,8 +71,12 @@ export class HomeComponent implements OnInit {
       }
 
       // Teachers ----
+      // remove other career teachers
+      const teacherCareer = register[2].value.substring(0,2)
+      if(teacherCareer !== 'IF') register[4].value = "NULL";
+
       const tcIndex = this.teachers.findIndex(tc => tc.code === register[4].value);
-      if(tcIndex < 0 && register[4].value !== 'NULL'){
+      if(tcIndex < 0 && register[4].value !== "NULL"){
         this.teachers = [...this.teachers,
         {code: register[4].value, name: register[5].value}]
       }
@@ -84,13 +88,15 @@ export class HomeComponent implements OnInit {
         courseCode: register[2].value, courseName: register[3].value}
       ]
     }})
-    this.max = Math.round(this.students.length/this.teachers.length)+2;
+    const tmp = Math.round(this.students.length/this.teachers.length);
+    this.max = tmp > 18? 20 : tmp+2;
   }
+
   fillListas(){
     let stAdded: string[] = [];
     let remainingEnrollments = [...this.enrollments];
     this.enrollments.map(enrollment => {
-      if (stAdded.findIndex(st => enrollment.studentCode===st) < 0){
+      if (stAdded.findIndex(st => enrollment.studentCode===st) < 0 && enrollment.teacherCode != "NULL"){
         let added = false;
         let disIndex = this.distribution.findIndex(dis => dis.teacherCode === enrollment.teacherCode);
 
@@ -113,11 +119,12 @@ export class HomeComponent implements OnInit {
     })
 
     // distribute remaining students
+    this.max = this.max > 18? 20 : this.max+2;
     let i = 0;
     while(remainingEnrollments.length > i){
       const remain = remainingEnrollments[i];
       const disIndex = this.distribution.findIndex(enr => enr.teacherCode === remain.teacherCode);
-      if(disIndex >= 0 && this.distribution[disIndex].students.length<this.max+2){
+      if(disIndex >= 0 && this.distribution[disIndex].students.length<this.max){
         this.distribution[disIndex].students = [...this.distribution[disIndex].students,
           {code: remain.studentCode, course: remain.courseName}
         ];
@@ -139,5 +146,9 @@ export class HomeComponent implements OnInit {
 
       remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
     }
+
+    console.log(`${this.teachers.length} profesores de Informatica`)
+    console.log(`${this.students.length} estudiantes`)
+    console.log(`${this.distribution.length} listas`)
   }
 }

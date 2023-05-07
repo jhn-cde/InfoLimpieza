@@ -1,98 +1,133 @@
-import { Component, OnInit } from '@angular/core';
-import * as Excel from '@grapecity/spread-excelio';
-import * as GC from '@grapecity/spread-sheets';
-import { saveAs } from 'file-saver';
+import { Component } from '@angular/core';
+import * as XLSX from 'xlsx';
+
+interface Person{code: string, name: string}
+interface Enrollment{
+  studentCode: string, studentName: string,
+  teacherCode: string, teacherName: string,
+  courseCode: string, courseName: string
+}
+interface Distribution{
+  teacherCode: string, teacherName: string,
+  students: {studentCode: string, studentName: string, course: string}[]
+}
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit {
-  private spread;
-  private excelIO;
-  students: {code: string, name: string}[] = [];
-  teachers: {code: string, name: string}[] = [];
-  enrollments: {studentCode: string, teacherCode: string, courseCode: string, courseName: string}[] = [];
-  distribution: {teacherCode: string, students: {code: string, course: string}[]}[] = [];
+
+export class HomeComponent {
+  students: Person[] = [];
+  teachers: Person[] = [];
+  enrollments: Enrollment[] = [];
+  distribution: Distribution[] = [];
   max: number = 0;
 
   constructor() {
-    this.spread = new GC.Spread.Sheets.Workbook();
-    this.excelIO = new Excel.IO();
-  }
-
-  ngOnInit(): void {
-
   }
 
   // actions ---
   onFileChange(args: any) {
     const file = args.srcElement && args.srcElement.files && args.srcElement.files[0];
-    if (this.spread && file) {
-      this.excelIO.open(file, (json: any) => {
-        const rows = json.sheets.Hoja1.data.dataTable;
-        this.fillStudentsTeachers(rows);
-        this.fillListas();
-        setTimeout(() => {
-          alert('Se cargo correctamente');
-        }, 0);
-      }, (error: any) => {
-        alert('Error al abrir archivo');
-      });
-    }
+    const reader: FileReader = new FileReader();
+    reader.onload = (e: any) => {
+      const bstr: string = e.target.result;
+      const wb: XLSX.WorkBook = XLSX.read(bstr, {type: 'binary'});
+      const wsname: string = wb.SheetNames[0];
+      const ws: XLSX.WorkSheet = wb.Sheets[wsname];
+      const register:any[] = XLSX.utils.sheet_to_json(ws, {header: 1})
+
+      this.fillStudentsTeachers(register);
+      this.getDistribution();
+    };
+    reader.readAsBinaryString(file);
   }
 
   onDownloadDistribution(){
-    const filename = 'exportExcel.csv';
-    /*const json = JSON.stringify(JSON.stringify(this.distribution));
-    console.log(json);
+    // sheet 1 - distribution
+    this.distribution.sort((a,b) => a.teacherName > b.teacherName?1:-1);
+
+    const worksheet1 = XLSX.utils.json_to_sheet(this.distribution.flat().map(({ teacherCode, teacherName, students }) => {
+      return students.map(({ studentCode, studentName, course }) => ({
+        Codigo_Docente: teacherCode,
+        Nombre_Docente: teacherName,
+        Codigo_Estudiante: studentCode,
+        Nombre_Estudiante: studentName,
+        Curso: course,
+      }));
+    }).flat());
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet1, 'Distribucion');
+
+    // sheet 2 - teachers
+    const worksheet2 = XLSX.utils.json_to_sheet(this.teachers.flat().map(({ code, name }) => {
+      return {
+        Codigo: code,
+        Docente: name,
+      };
+    }).flat());
+
+    XLSX.utils.book_append_sheet(workbook, worksheet2, 'Docentes');
 
 
-    this.excelIO.save(json, function (blob: any) {
-      saveAs(blob, filename);
-    }, function (error: any) {
-      console.log(error);
-    });*/
+    // sheet 3 - Students
+    const worksheet3 = XLSX.utils.json_to_sheet(this.students.flat().map(({ code, name }) => {
+      return {
+        Codigo: code,
+        Alumno: name,
+      };
+    }).flat());
+
+    XLSX.utils.book_append_sheet(workbook, worksheet3, 'Alumnos');
+
+
+    XLSX.writeFile(workbook, 'InfoLimpiadasDistribucion.xlsx');
   }
 
   // functions ---
 
-  fillStudentsTeachers(rows: any){
-    Object.keys(rows).map((rKey) => {
-    if(rKey !== '0'){
-      let register = rows[rKey];
+  fillStudentsTeachers(rows: any[]){
+    for(let ri = 0; ri < rows.length; ri++) {
+      if(ri > 0){
+        let register: string[] = rows[ri];
 
-      // Students ---
-      const stIndex = this.students.findIndex(st => st.code === register[0].value);
-      if(stIndex < 0){
-        this.students = [...this.students,
-        {code: register[0].value, name: register[1].value}]
+        // Students ---
+        const stIndex = this.students.findIndex(st => st.code === register[0]);
+        if(stIndex < 0){
+          this.students = [...this.students,
+          {code: register[0], name: register[1]}]
+        }
+
+        // Teachers ----
+        // remove other career teachers
+        const teacherCareer = register[2].substring(0,2)
+        if(teacherCareer !== 'IF') register[4] = "NULL";
+
+        const tcIndex = this.teachers.findIndex(tc => tc.code === register[4]);
+        if(tcIndex < 0 && register[4] !== "NULL"){
+          this.teachers = [...this.teachers,
+          {code: register[4], name: register[5]}]
+        }
+
+        // enrollments
+        this.enrollments = [
+          ...this.enrollments,
+          {
+            studentCode: register[0], studentName: register[1],
+            teacherCode: register[4], teacherName: register[5],
+            courseCode: register[2], courseName: register[3]
+          }
+        ]
       }
-
-      // Teachers ----
-      // remove other career teachers
-      const teacherCareer = register[2].value.substring(0,2)
-      if(teacherCareer !== 'IF') register[4].value = "NULL";
-
-      const tcIndex = this.teachers.findIndex(tc => tc.code === register[4].value);
-      if(tcIndex < 0 && register[4].value !== "NULL"){
-        this.teachers = [...this.teachers,
-        {code: register[4].value, name: register[5].value}]
-      }
-
-      // enrollments
-      this.enrollments = [
-        ...this.enrollments,
-        {studentCode: register[0].value, teacherCode: register[4].value,
-        courseCode: register[2].value, courseName: register[3].value}
-      ]
-    }})
+    }
     const tmp = Math.round(this.students.length/this.teachers.length);
     this.max = tmp > 18? 20 : tmp+2;
   }
 
-  fillListas(){
+  getDistribution(){
     let stAdded: string[] = [];
     let remainingEnrollments = [...this.enrollments];
     this.enrollments.map(enrollment => {
@@ -102,12 +137,24 @@ export class HomeComponent implements OnInit {
 
         if(disIndex < 0){
           this.distribution = [...this.distribution,
-            {teacherCode: enrollment.teacherCode, students: [{code:enrollment.studentCode, course: enrollment.courseName}]}];
+            {
+              teacherCode: enrollment.teacherCode, teacherName: enrollment.teacherName,
+              students: [
+                {
+                  studentCode:enrollment.studentCode, studentName: enrollment.studentName,
+                  course: enrollment.courseName
+                }
+              ]
+            }
+          ];
           added = true;
         }
         else if(this.distribution[disIndex].students.length < this.max){
           this.distribution[disIndex].students = [...this.distribution[disIndex].students,
-          {code:enrollment.studentCode, course: enrollment.courseName}];
+          {
+            studentCode:enrollment.studentCode, studentName: enrollment.studentName,
+            course: enrollment.courseName
+          }];
           added = true;
         }
 
@@ -118,30 +165,16 @@ export class HomeComponent implements OnInit {
       }
     })
 
-    // distribute remaining students
-    this.max = this.max > 18? 20 : this.max+2;
-    let i = 0;
-    while(remainingEnrollments.length > i){
-      const remain = remainingEnrollments[i];
-      const disIndex = this.distribution.findIndex(enr => enr.teacherCode === remain.teacherCode);
-      if(disIndex >= 0 && this.distribution[disIndex].students.length<this.max){
-        this.distribution[disIndex].students = [...this.distribution[disIndex].students,
-          {code: remain.studentCode, course: remain.courseName}
-        ];
-
-        remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
-      } else {
-        i++;
-      }
-    }
-
     // get ramaining students
     while(remainingEnrollments.length > 0) {
       const remain = remainingEnrollments[0];
       // order by number of students
       this.distribution.sort((a,b)=> a.students.length>b.students.length?1:-1);
       this.distribution[0].students = [...this.distribution[0].students,
-        {code: remain.studentCode, course: remain.courseName}
+        {
+          studentCode:remain.studentCode, studentName: remain.studentName,
+          course: remain.courseName
+        }
       ];
 
       remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);

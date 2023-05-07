@@ -1,6 +1,9 @@
 import { Component } from '@angular/core';
 import * as XLSX from 'xlsx';
 
+import {MatTreeFlatDataSource, MatTreeFlattener} from '@angular/material/tree';
+import {FlatTreeControl} from '@angular/cdk/tree';
+
 interface Person{code: string, name: string}
 interface Enrollment{
   studentCode: string, studentName: string,
@@ -11,6 +14,15 @@ interface Distribution{
   teacherCode: string, teacherName: string,
   students: {studentCode: string, studentName: string, course: string}[]
 }
+interface Node{
+  name: string,
+  children?: Node[]
+}
+interface FlatNode {
+  expandable: boolean;
+  name: string;
+  level: number;
+}
 
 @Component({
   selector: 'app-home',
@@ -19,6 +31,26 @@ interface Distribution{
 })
 
 export class HomeComponent {
+  private _transformer = (node: Node, level: number) => {
+    return {
+      expandable: !!node.children && node.children.length > 0,
+      name: node.name,
+      level: level,
+    };
+  };
+
+  treeControl = new FlatTreeControl<FlatNode>(
+    node => node.level,
+    node => node.expandable,
+  );
+  treeFlattener = new MatTreeFlattener(
+    this._transformer,
+    node => node.level,
+    node => node.expandable,
+    node => node.children,
+  );
+  dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener);
+
   students: Person[] = [];
   teachers: Person[] = [];
   enrollments: Enrollment[] = [];
@@ -27,6 +59,7 @@ export class HomeComponent {
 
   constructor() {
   }
+  hasChild = (_: number, node: FlatNode) => node.expandable;
 
   // actions ---
   onFileChange(args: any) {
@@ -47,8 +80,6 @@ export class HomeComponent {
 
   onDownloadDistribution(){
     // sheet 1 - distribution
-    this.distribution.sort((a,b) => a.teacherName > b.teacherName?1:-1);
-
     const worksheet1 = XLSX.utils.json_to_sheet(this.distribution.flat().map(({ teacherCode, teacherName, students }) => {
       return students.map(({ studentCode, studentName, course }) => ({
         Codigo_Docente: teacherCode,
@@ -84,7 +115,7 @@ export class HomeComponent {
     XLSX.utils.book_append_sheet(workbook, worksheet3, 'Alumnos');
 
 
-    XLSX.writeFile(workbook, 'InfoLimpiadasDistribucion.xlsx');
+    XLSX.writeFile(workbook, 'INFOLIMPIEZA_DISTRIBUCION.xlsx');
   }
 
   // functions ---
@@ -173,15 +204,26 @@ export class HomeComponent {
       this.distribution[0].students = [...this.distribution[0].students,
         {
           studentCode:remain.studentCode, studentName: remain.studentName,
-          course: remain.courseName
+          course: ''
         }
       ];
 
       remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
     }
 
+    // sort distribution by teacher
+    this.distribution.sort((a,b) => a.teacherName > b.teacherName?1:-1);
+
     console.log(`${this.teachers.length} profesores de Informatica`)
     console.log(`${this.students.length} estudiantes`)
     console.log(`${this.distribution.length} listas`)
+
+    // fill tree
+    this.dataSource.data = this.distribution.map(dis => {
+      return{
+        name: `${dis.teacherName} (${dis.students.length})`,
+        children: dis.students.map(st => {return {name: `${st.studentCode} - ${st.studentName}`}})
+      }
+    })
   }
 }

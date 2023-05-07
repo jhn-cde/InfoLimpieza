@@ -1,0 +1,7 @@
+.loadExcelInput, .downloadBtn, h1{
+  margin: 1rem;
+}
+.buttons{
+  display: flex;
+  flex-wrap: wrap;
+}

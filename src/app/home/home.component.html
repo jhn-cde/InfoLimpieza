@@ -9,7 +9,17 @@
       </div>
 
       <div class="downloadBtn">
-        <button mat-raised-button type="button" (click)="onDownloadDistribution()">Descargar Distribucion</button>
+        <button
+          type="button"
+          *ngIf="distribution.length > 0; else btn_disabled" 
+          mat-raised-button 
+          (click)="onDownloadDistribution()"
+        >Descargar Distribucion</button>
+        <ng-template #btn_disabled>
+          <button 
+            mat-raised-button 
+            disabled="true" type="button">Descargar Distribucion</button>
+        </ng-template>
       </div>
     </div>
     <mat-divider></mat-divider>

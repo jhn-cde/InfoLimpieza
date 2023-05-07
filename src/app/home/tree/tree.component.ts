@@ -1,11 +1,8 @@
 import { FlatTreeControl } from '@angular/cdk/tree';
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MatTreeFlatDataSource, MatTreeFlattener } from '@angular/material/tree';
+import { Node, ReactiveService } from 'src/app/shared/reactive.service';
 
-interface Node{
-  name: string,
-  children?: Node[]
-}
 interface FlatNode {
   expandable: boolean;
   name: string;
@@ -18,8 +15,6 @@ interface FlatNode {
   styleUrls: ['./tree.component.css']
 })
 export class TreeComponent implements OnInit, OnDestroy {
-  @Input() tree!: Node[];
-
   private _transformer = (node: Node, level: number) => {
     return {
       expandable: !!node.children && node.children.length > 0,
@@ -40,10 +35,14 @@ export class TreeComponent implements OnInit, OnDestroy {
   dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener);
 
 
-  constructor() { }
+  constructor(private service: ReactiveService) { }
 
   ngOnInit(): void {
-    this.dataSource.data = this.tree;
+    this.service
+      .getTree()
+      .subscribe((tree) => {
+        this.dataSource.data = tree;
+      })
   }
   ngOnDestroy(): void {
     console.log('Tree destroyed');

@@ -1,7 +1,28 @@
-.loadExcelInput, .downloadBtn, h1{
-  margin: 1rem;
+.container{
+  color: white;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+.buttons, h1{
+  margin-bottom: 1rem;
 }
 .buttons{
   display: flex;
   flex-wrap: wrap;
+}
+
+.loadExcelInput, .downloadBtn{
+  margin-right: 1rem;
+}
+.header, .main{
+  margin-bottom: 2rem;
+}
+h1, h2{
+  font-weight: 600;
+}
+h1{
+  font-size: 2rem;
+}
+h2{
+  font-size: 1.5rem;
 }

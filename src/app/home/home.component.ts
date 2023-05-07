@@ -1,21 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import * as XLSX from 'xlsx';
-
-interface Node{
-  name: string,
-  children?: Node[]
-}
-
-interface Person{code: string, name: string}
-interface Enrollment{
-  studentCode: string, studentName: string,
-  teacherCode: string, teacherName: string,
-  courseCode: string, courseName: string
-}
-interface Distribution{
-  teacherCode: string, teacherName: string,
-  students: {studentCode: string, studentName: string, course: string}[]
-}
+import { Distribution, Enrollment, Person, ReactiveService } from '../shared/reactive.service';
 
 @Component({
   selector: 'app-home',
@@ -23,32 +8,30 @@ interface Distribution{
   styleUrls: ['./home.component.css']
 })
 
-export class HomeComponent {
+export class HomeComponent implements OnInit {
   students: Person[] = [];
   teachers: Person[] = [];
-  enrollments: Enrollment[] = [];
   distribution: Distribution[] = [];
   max: number = 0;
   tree: Node[] = [];
 
-  constructor() {
+  constructor(private service: ReactiveService) {
+  }
+
+  ngOnInit(): void {
+    this.service
+      .getFileData()
+      .subscribe((data) => {
+        this.distribution = data.distribution;
+        this.teachers = data.teachers;
+        this.students = data.students;
+      });
   }
 
   // actions ---
   onFileChange(args: any) {
     const file = args.srcElement && args.srcElement.files && args.srcElement.files[0];
-    const reader: FileReader = new FileReader();
-    reader.onload = (e: any) => {
-      const bstr: string = e.target.result;
-      const wb: XLSX.WorkBook = XLSX.read(bstr, {type: 'binary'});
-      const wsname: string = wb.SheetNames[0];
-      const ws: XLSX.WorkSheet = wb.Sheets[wsname];
-      const register:any[] = XLSX.utils.sheet_to_json(ws, {header: 1})
-
-      this.fillStudentsTeachers(register);
-      this.getDistribution();
-    };
-    reader.readAsBinaryString(file);
+    this.service.fillDatafromFile(file);
   }
 
   onDownloadDistribution(){
@@ -89,114 +72,5 @@ export class HomeComponent {
 
 
     XLSX.writeFile(workbook, 'INFOLIMPIEZA_DISTRIBUCION.xlsx');
-  }
-
-  // functions ---
-
-  fillStudentsTeachers(rows: any[]){
-    for(let ri = 0; ri < rows.length; ri++) {
-      if(ri > 0){
-        let register: string[] = rows[ri];
-
-        // Students ---
-        const stIndex = this.students.findIndex(st => st.code === register[0]);
-        if(stIndex < 0){
-          this.students = [...this.students,
-          {code: register[0], name: register[1]}]
-        }
-
-        // Teachers ----
-        // remove other career teachers
-        const teacherCareer = register[2].substring(0,2)
-        if(teacherCareer !== 'IF') register[4] = "NULL";
-
-        const tcIndex = this.teachers.findIndex(tc => tc.code === register[4]);
-        if(tcIndex < 0 && register[4] !== "NULL"){
-          this.teachers = [...this.teachers,
-          {code: register[4], name: register[5]}]
-        }
-
-        // enrollments
-        this.enrollments = [
-          ...this.enrollments,
-          {
-            studentCode: register[0], studentName: register[1],
-            teacherCode: register[4], teacherName: register[5],
-            courseCode: register[2], courseName: register[3]
-          }
-        ]
-      }
-    }
-    const tmp = Math.round(this.students.length/this.teachers.length);
-    this.max = tmp > 18? 20 : tmp+2;
-  }
-
-  getDistribution(){
-    let stAdded: string[] = [];
-    let remainingEnrollments = [...this.enrollments];
-    this.enrollments.map(enrollment => {
-      if (stAdded.findIndex(st => enrollment.studentCode===st) < 0 && enrollment.teacherCode != "NULL"){
-        let added = false;
-        let disIndex = this.distribution.findIndex(dis => dis.teacherCode === enrollment.teacherCode);
-
-        if(disIndex < 0){
-          this.distribution = [...this.distribution,
-            {
-              teacherCode: enrollment.teacherCode, teacherName: enrollment.teacherName,
-              students: [
-                {
-                  studentCode:enrollment.studentCode, studentName: enrollment.studentName,
-                  course: enrollment.courseName
-                }
-              ]
-            }
-          ];
-          added = true;
-        }
-        else if(this.distribution[disIndex].students.length < this.max){
-          this.distribution[disIndex].students = [...this.distribution[disIndex].students,
-          {
-            studentCode:enrollment.studentCode, studentName: enrollment.studentName,
-            course: enrollment.courseName
-          }];
-          added = true;
-        }
-
-        if(added) {
-          stAdded = [...stAdded, enrollment.studentCode];
-          remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== enrollment.studentCode);
-        }
-      }
-    })
-
-    // get ramaining students
-    while(remainingEnrollments.length > 0) {
-      const remain = remainingEnrollments[0];
-      // order by number of students
-      this.distribution.sort((a,b)=> a.students.length>b.students.length?1:-1);
-      this.distribution[0].students = [...this.distribution[0].students,
-        {
-          studentCode:remain.studentCode, studentName: remain.studentName,
-          course: ''
-        }
-      ];
-
-      remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
-    }
-
-    // sort distribution by teacher
-    this.distribution.sort((a,b) => a.teacherName > b.teacherName?1:-1);
-
-    console.log(`${this.teachers.length} profesores de Informatica`)
-    console.log(`${this.students.length} estudiantes`)
-    console.log(`${this.distribution.length} listas`)
-
-    // fill tree
-    this.tree = this.distribution.map(dis => {
-      return{
-        name: `${dis.teacherName} (${dis.students.length})`,
-        children: dis.students.map(st => {return {name: `${st.studentCode} - ${st.studentName}`}})
-      }
-    })
   }
 }

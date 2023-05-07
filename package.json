@@ -1,5 +1,5 @@
 {
-  "name": "primer-proyecto",
+  "name": "infolimpieza",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
@@ -23,6 +23,7 @@
     "@grapecity/spread-excelio": "^16.1.0",
     "@grapecity/spread-sheets": "^16.1.0",
     "@grapecity/spread-sheets-angular": "^16.1.0",
+    "angular-cli-ghpages": "^1.0.6",
     "file-saver": "^2.0.5",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",

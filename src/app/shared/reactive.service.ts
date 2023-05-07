@@ -1,27 +1,12 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import * as XLSX from 'xlsx';
+import { Distribution, Enrollment, Person } from './interfaces';
+import { Data } from '@angular/router';
 
 export interface Node{
   name: string,
   children?: Node[]
-}
-
-export interface Person{code: string, name: string}
-export interface Enrollment{
-  studentCode: string, studentName: string,
-  teacherCode: string, teacherName: string,
-  courseCode: string, courseName: string
-}
-export interface Distribution{
-  teacherCode: string, teacherName: string,
-  students: {studentCode: string, studentName: string, course: string}[]
-}
-
-export interface Data{
-  distribution: Distribution[],
-  teachers: Person[],
-  students: Person[]
 }
 
 @Injectable({
@@ -108,82 +93,84 @@ export class ReactiveService {
   }
 
   private getDistribution(){
-    let stAdded: string[] = [];
     let remainingEnrollments = [...this.enrollments];
+
+    // Distribute students by teacher
     this.enrollments.map(enrollment => {
-      if (stAdded.findIndex(st => enrollment.studentCode===st) < 0 && enrollment.teacherCode != "NULL"){
-        let added = false;
-        let disIndex = this.distribution.findIndex(dis => dis.teacherCode === enrollment.teacherCode);
+      let added = false;
+      // Search for teacher in distribution
+      let disIndex = this.distribution.findIndex(dis => dis.teacherCode === enrollment.teacherCode);
 
-        if(disIndex < 0){
-          this.distribution = [...this.distribution,
-            {
-              teacherCode: enrollment.teacherCode, teacherName: enrollment.teacherName,
-              students: [
-                {
-                  studentCode:enrollment.studentCode, studentName: enrollment.studentName,
-                  course: enrollment.courseName
-                }
-              ]
-            }
-          ];
-          added = true;
-        }
-        else if(this.distribution[disIndex].students.length < this.maxPerGroup){
-          this.distribution[disIndex].students = [...this.distribution[disIndex].students,
+      // If teacher doesn't exist, create a new group ---
+      if(disIndex < 0 && enrollment.teacherCode != "NULL"){
+        this.distribution = [...this.distribution,
           {
-            studentCode:enrollment.studentCode, studentName: enrollment.studentName,
-            course: enrollment.courseName
-          }];
-          added = true;
-        }
+            teacherCode: enrollment.teacherCode, teacherName: enrollment.teacherName,
+            students: [
+              {
+                studentCode:enrollment.studentCode, studentName: enrollment.studentName,
+                course: enrollment.courseName
+              }
+            ]
+          }
+        ];
+        added = true;
+      }
 
-        if(added) {
-          stAdded = [...stAdded, enrollment.studentCode];
-          remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== enrollment.studentCode);
-        }
+      // Add student to teacher group if group is less than maxPerGroup ---
+      else if(disIndex >= 0 && this.distribution[disIndex].students.length < this.maxPerGroup){
+        this.distribution[disIndex].students = [...this.distribution[disIndex].students,
+        {
+          studentCode:enrollment.studentCode, studentName: enrollment.studentName,
+          course: enrollment.courseName
+        }];
+        added = true;
+      }
+      
+      // If student added, remove all student enrollments
+      if(added) {
+        remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== enrollment.studentCode);
       }
     })
-
-    // get ramaining students
+    
+    // distribute ramaining students ---
     while(remainingEnrollments.length > 0) {
       const remain = remainingEnrollments[0];
-      // order by number of students
+      // sort groups by number of students
       this.distribution.sort((a,b)=> a.students.length>b.students.length?1:-1);
-      this.distribution[0].students = [...this.distribution[0].students,
+      // add student to the smallest group
+      this.distribution[0].students = [
+        ...this.distribution[0].students,
         {
-          studentCode:remain.studentCode, studentName: remain.studentName,
-          course: ''
+          studentCode:remain.studentCode, studentName: remain.studentName, course: ''
         }
       ];
-
+      // remove all student enrollments
       remainingEnrollments = remainingEnrollments.filter(enroll => enroll.studentCode !== remain.studentCode);
     }
 
     // sort distribution by teacher
     this.distribution.sort((a,b) => a.teacherName > b.teacherName?1:-1);
 
-    console.log(`${this.teachers.length} profesores de Informatica`)
-    console.log(`${this.students.length} estudiantes`)
-    console.log(`${this.distribution.length} listas`)
+    console.log(`${this.teachers.length} profesores de Informatica\n`+
+        `${this.students.length} estudiantes\n`+`${this.distribution.length} listas`);
+    
+    this.setTree();
+  }
 
+  getTree() {
+    return this.treeSubject.asObservable();
+  }
+  
+  setTree() {
     // fill tree
-    const tree = this.distribution.map(dis => {
+    this.tree = this.distribution.map(dis => {
       return{
         name: `${dis.teacherName} (${dis.students.length})`,
         children: dis.students.map(st => {return {name: `${st.studentCode} - ${st.studentName}`}})
       }
     });
-    
-    this.setTree(tree);
-  }
 
-  getTree() {
-    return this.treeSubject.asObservable();
-
-  }
-  setTree(tree: Node[]) {
-    this.tree = tree;
     this.treeSubject.next(this.tree);
   }
 }
